@@ -1,6 +1,12 @@
-from flask import Flask, jsonify, render_template_string, request
-from fuzzifying_gpu_data import get_gpu_recommendations
+from flask import Flask, jsonify, request, render_template_string
+# Update imports from the renamed file
+from fuzzifying_gpu_data import (
+    get_best_part_recommendation,
+    fuzzify_gpu_data,
+    fuzzify_cpu_data # New CPU fuzzifier
+)
 from gpu_data import gpu_dataset
+from cpu_data import cpu_dataset # New CPU data import
 
 app = Flask(__name__)
 
@@ -31,36 +37,44 @@ def recommend_parts():
     except Exception as e:
         return jsonify({"error": f"Invalid JSON or request format: {e}"}), 400
 
-    # 2. Get ranked GPUs
-    # This function handles the fuzzification and scoring logic
-    ranked_gpus = get_gpu_recommendations(user_inputs_clean, gpu_dataset)
+    # Define the number of recommendations you want
+    NUM_RECOMMENDATIONS = 3
 
-    if not ranked_gpus:
-        return jsonify({"error": "No GPU recommendations could be generated."}), 500
+    # 1. Get ranked GPUs
+    # Note: We only pass p_part and r_part, skipping b_part, as the generic function expects 2 capability scores.
+    ranked_gpus = get_best_part_recommendation(
+        user_inputs_clean,
+        gpu_dataset,
+        lambda part: (fuzzify_gpu_data(part)[1], fuzzify_gpu_data(part)[2])
+    )
 
-    # 3. Select the single best part for the frontend display
-    best_gpu = ranked_gpus[0]
+    # 2. Get ranked CPUs
+    ranked_cpus = get_best_part_recommendation(
+        user_inputs_clean,
+        cpu_dataset,
+        fuzzify_cpu_data
+    )
 
-    # 4. Create the final response structure to match the frontend (CPU, GPU, MB)
-    # Since you only have GPU logic now, we mock the other two parts.
+    if not ranked_gpus or not ranked_cpus:
+        return jsonify({"error": "Failed to generate recommendations for one or more parts."}), 500
+
+    # 3. Select the top N parts
+    top_cpus = ranked_cpus[:NUM_RECOMMENDATIONS]
+    top_gpus = ranked_gpus[:NUM_RECOMMENDATIONS]
+
+    # 4. Create the final response structure with arrays
     final_recommendation = {
-        "CPU": {
-            "name": "MOCK CPU (Placeholder)",
-            "score": "N/A"  # In a real system, this would be the best CPU
-        },
-        "GPU": {
-            "name": best_gpu['model'],
-            "score": f"{best_gpu['reco_score']:.2f}%",
-            "price": best_gpu['price_usd'],
-            "details": best_gpu
-        },
+        "CPU_Recommendations": top_cpus,
+        "GPU_Recommendations": top_gpus,
+        # Keep the Motherboard as a placeholder for consistency
         "Motherboard": {
-            "name": "MOCK Motherboard (Placeholder)",
-            "score": "N/A"
+            "model": "MOCK Motherboard (Placeholder)",
+            "reco_score": 0.00,
+            "price_usd": 0.00
         }
     }
 
-    # 5. Return the single best GPU along with placeholders
+    # 5. Return the structured JSON
     return jsonify(final_recommendation)
 
 

@@ -91,25 +91,18 @@
 
             <section id="recommendations-section" class="hidden">
                 <h2 class="text-3xl font-semibold mt-12 mb-6 text-gray-800 dark:text-gray-200 text-center">Your Recommendations</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-                    <div id="cpu-card" class="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-lg dark:shadow-md dark:shadow-teal-500/20">
-                        <h3 class="text-xl font-bold text-teal-600 dark:text-teal-400">CPU</h3>
-                        <div class="space-y-2 part-details">
-                            <p class="text-lg text-gray-700 dark:text-gray-300">Name: <span class="font-bold part-name">Loading...</span></p>
-                            <p class="text-lg text-gray-700 dark:text-gray-300">Score: <span class="font-bold text-orange-600 dark:text-orange-400 part-score">--%</span></p>
-                        </div>
+                <h3 class="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-200">Top CPU Recommendations</h3>
+                <div id="cpu-recommendation-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                     </div>
 
-                    <div id="gpu-card" class="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-lg dark:shadow-md dark:shadow-teal-500/20">
-                        <h3 class="text-xl font-bold text-teal-600 dark:text-teal-400">GPU</h3>
-                        <div class="space-y-2 part-details">
-                            <p class="text-lg text-gray-700 dark:text-gray-300">Name: <span class="font-bold part-name">Loading...</span></p>
-                            <p class="text-lg text-gray-700 dark:text-gray-300">Score: <span class="font-bold text-orange-600 dark:text-orange-400 part-score">--%</span></p>
-                            </div>
+                <h3 class="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-200">Top GPU Recommendations</h3>
+                <div id="gpu-recommendation-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                     </div>
 
-                    <div id="motherboard-card" class="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-lg dark:shadow-md dark:shadow-teal-500/20">
+                <h3 class="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-200">Recommended Motherboard</h3>
+                <div id="motherboard-card-container" class="max-w-md mx-auto">
+                     <div id="motherboard-card" class="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-lg dark:shadow-md dark:shadow-teal-500/20">
                         <h3 class="text-xl font-bold text-teal-600 dark:text-teal-400">Motherboard</h3>
                         <div class="space-y-2 part-details">
                             <p class="text-lg text-gray-700 dark:text-gray-300">Name: <span class="font-bold part-name">Loading...</span></p>
@@ -164,31 +157,49 @@
 
         // --- Recommendation Rendering ---
 
-        // Helper function to update a single part card
-        function updatePartCard(partType, data) {
-            const card = document.getElementById(`${partType.toLowerCase()}-card`);
-            if (!card) return;
-
-            // Build the HTML details block
-            let detailsHtml = `<p class="text-lg text-gray-700 dark:text-gray-300">Name: <span class="font-bold part-name">${data.name}</span></p>
-                               <p class="text-lg text-gray-700 dark:text-gray-300">Score: <span class="font-bold text-orange-600 dark:text-orange-400 part-score">${data.score}</span></p>`;
-
-            // Special detail for the GPU (to show price)
-            if (partType === 'GPU' && data.price) {
-                detailsHtml += `<p class="text-lg text-gray-700 dark:text-gray-300">Price: <span class="font-bold text-teal-600 dark:text-teal-400">$${data.price.toLocaleString()}</span></p>`;
-            }
-
-            card.querySelector('.part-details').innerHTML = detailsHtml;
+        // Helper function to create a single part card HTML
+        function createPartCardHTML(part, index, partType) {
+            return `
+                <div class="bg-gray-200 dark:bg-gray-800 p-4 rounded-xl shadow-lg border-l-4 border-teal-600 hover:shadow-xl transition duration-300">
+                    <h4 class="text-lg font-bold text-teal-600 dark:text-teal-400 mb-1">#${index + 1} - ${part.model}</h4>
+                    <p class="text-md text-gray-700 dark:text-gray-300">
+                        Score: <span class="font-extrabold text-orange-600 dark:text-orange-400">${part.reco_score.toFixed(2)}%</span>
+                    </p>
+                    <p class="text-md text-gray-700 dark:text-gray-300">
+                        Price: <span class="font-bold">$${part.price_usd.toLocaleString()}</span>
+                    </p>
+                </div>
+            `;
         }
 
-        // The main rendering function
+        // Main rendering function
         function renderRecommendations(data) {
-            // Update the individual cards based on the JSON keys (CPU, GPU, Motherboard)
-            updatePartCard('CPU', data.CPU);
-            updatePartCard('GPU', data.GPU);
-            updatePartCard('Motherboard', data.Motherboard);
+            const cpuListContainer = document.getElementById('cpu-recommendation-list');
+            const gpuListContainer = document.getElementById('gpu-recommendation-list');
+            const mbCardContainer = document.getElementById('motherboard-card');
 
-            // Show the section
+            // Clear previous results
+            cpuListContainer.innerHTML = '';
+            gpuListContainer.innerHTML = '';
+
+            // 1. Render CPU List
+            data.CPU_Recommendations.forEach((cpu, index) => {
+                cpuListContainer.insertAdjacentHTML('beforeend', createPartCardHTML(cpu, index, 'CPU'));
+            });
+
+            // 2. Render GPU List
+            data.GPU_Recommendations.forEach((gpu, index) => {
+                gpuListContainer.insertAdjacentHTML('beforeend', createPartCardHTML(gpu, index, 'GPU'));
+            });
+
+            // 3. Render Motherboard Placeholder (Single Card)
+            // Note: Since Motherboard is still mock data, we update its placeholder.
+            const mbData = data.Motherboard;
+            mbCardContainer.querySelector('.part-name').textContent = mbData.model;
+            mbCardContainer.querySelector('.part-score').textContent = mbData.reco_score.toFixed(2) + '%';
+
+
+            // Show the section and scroll
             recommendationsSection.classList.remove('hidden');
             window.scrollTo({
                 top: recommendationsSection.offsetTop - 50,

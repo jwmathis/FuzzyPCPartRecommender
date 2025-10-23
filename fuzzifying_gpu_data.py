@@ -89,80 +89,94 @@ def fuzzify_gpu_data(gpu_data):
     return budget_score, perf_score, resolution_score
 
 
-def get_gpu_recommendations(user_inputs, gpu_dataset):
-    """
-    Calculates the final recommendation score for all GPUs based on user inputs.
-    """
-    ranked_gpus = []
+# Assuming 'fuzzifying_gpu_data.py' is now 'fuzzifying_parts.py'
 
-    # 1. Map user inputs to the fuzzy system's 0-100 scale
+# Define max scores for normalization based on your dataset
+MAX_SINGLE_CORE = 5000
+MAX_MULTI_CORE = 64000  # From 14900K
+
+
+def fuzzify_cpu_data(cpu_data):
+    """
+    Translates raw CPU specs into normalized 0-100 scores for Price and Performance.
+    """
+
+    # --- 2.1: Fuzzify Performance Priority (Part's Capability) ---
+    # CPU performance score should be a weighted average of single-core and multi-core.
+    # Weight single-core higher (e.g., 60%) for general-purpose PC builds.
+    perf_score_part = (
+                              (cpu_data['single_core_score'] / MAX_SINGLE_CORE) * 0.6 +
+                              (cpu_data['multi_core_score'] / MAX_MULTI_CORE) * 0.4
+                      ) * 100
+
+    perf_score_part = max(0, min(100, perf_score_part))
+
+    # --- 2.2: Fuzzify Resolution Score (Part's Capability) ---
+    # The CPU generally has less impact on resolution than the GPU,
+    # but a high-end CPU is needed to prevent a GPU bottleneck at 4K.
+    # We can assign a score based on raw power to match user's resolution preference.
+    if perf_score_part > 80:
+        resolution_score_part = 90  # High (4K capable)
+    elif perf_score_part > 50:
+        resolution_score_part = 50  # Medium (1440p capable)
+    else:
+        resolution_score_part = 10  # Low (1080p capable)
+
+    # We do NOT calculate the Budget Score here; it's handled in the final integration function.
+
+    # Return the part's CAPABILITY scores
+    return perf_score_part, resolution_score_part  # Only two scores needed
+
+
+# Rename get_gpu_recommendations to a generic function
+def get_best_part_recommendation(user_inputs, part_dataset, fuzzification_func, part_price_key='price_usd'):
+    """
+    Calculates the final recommendation score for any part type based on user inputs.
+    """
+    ranked_parts = []
+
+    # 1. Map user inputs to the fuzzy system's 0-100 scale (done only once)
     user_budget_n = normalize_budget(user_inputs['budget'])
     user_perf_n = map_user_input_to_100(user_inputs['performance_priority'], 10)
     user_res_n = map_user_input_to_100(user_inputs['resolution_level'], 3)
 
-    # The user inputs are now the crisp inputs for the fuzzy system!
+    for part in part_dataset:
 
-    # 2. Run the user's preference through the fuzzy system to get a TARGET score.
-    # The fuzzy system will essentially tell us: "Based on what the user wants,
-    # what kind of part (low/med/high) should the system recommend?"
-    # This is not strictly necessary for this simple rule set, but it keeps the
-    # structure aligned with a more complex fuzzy system.
-    # For a simpler approach (which is all you need for now): we compare part scores to user scores.
+        # Get the part's CAPABILITY scores (p_part, r_part) from the specific fuzzification function
+        # NOTE: CPU fuzzification only returns 2 scores, GPU returns 3. Adjusting:
 
-    for gpu in gpu_dataset:
+        # Assuming fuzzification_func returns performance and resolution scores:
+        p_part, r_part = fuzzification_func(part)
 
-        # Get the part's CAPABILITY scores (0-100)
-        b_part, p_part, r_part = fuzzify_gpu_data(gpu)
+        # --- 1. Calculate Raw Fuzzy Score (Using User's Budget Level) ---
+        # The fuzzy logic runs with: USER's budget preference, PART's performance, PART's resolution
+        reco_score_raw = get_reco_score(user_budget_n, p_part, r_part)
+        final_reco_score = reco_score_raw
 
-        # --- Calculate Match Score ---
-        # The Match Score determines how well the part's CAPABILITY aligns with the USER'S WANTS.
-        # This is the crucial step. We use the *part's capability scores* as the inputs
-        # to the fuzzy system, but using the *user's normalized scores* as the 'target'.
+        # --- 2. Apply Hard Budget Penalty (Crisp Filter) ---
+        part_price = part.get(part_price_key, 0)
 
-        # A simpler approach: Compare the Part's score to the User's score.
-        # This determines *how good* a match the part is for the user's *preference level*.
-        # We use the *part's scores* as inputs to the fuzzy engine.
+        if part_price > user_inputs['budget']:
+            exceed_ratio = (part_price - user_inputs['budget']) / user_inputs['budget']
+            penalty_factor = max(0.1, 1 - (exceed_ratio * 0.5))
+            final_reco_score = reco_score_raw * penalty_factor
 
-        # The fuzzy logic *already* gives us a final score based on the inputs.
-        # We'll use the PART's capability scores (b_part, p_part, r_part)
-        # as the crisp inputs for the fuzzy logic engine.
+        # Optional: Apply slight budget efficiency/overkill penalty here if needed
 
-        # This is the **most straightforward** way to combine your existing files:
-        # We assume a GPU with high B/P/R scores will be a "high" recommendation
-        # and then filter the results to find the *best* part within the user's budget.
+        ranked_parts.append({
+            'model': part['model'],
+            'reco_score': final_reco_score,
+            'price_usd': part_price,
+            'fuzzified_scores': {
+                'performance': round(p_part, 2),
+                'resolution': round(r_part, 2)
+            }
+        })
 
-        reco_score_raw = get_reco_score(b_part, p_part, r_part)
+    # Sort and return the ranked list
+    ranked_parts.sort(key=lambda x: x['reco_score'], reverse=True)
+    return ranked_parts
 
-        if reco_score_raw is not None:
-
-            # --- Final Score Adjustment (Crucial for Budget) ---
-            # If the GPU price exceeds the user's budget, penalize the score heavily.
-            # This is a crisp filter applied after the fuzzy logic.
-            final_reco_score = reco_score_raw
-            if gpu['price_usd'] > user_inputs['budget']:
-                # Heavy penalty if price exceeds budget
-                penalty_factor = (gpu['price_usd'] - user_inputs['budget']) / user_inputs['budget']
-                final_reco_score = reco_score_raw * max(0.1, (1 - penalty_factor))  # Max penalty to 90%
-
-            # If the GPU is a gross overkill for a low budget, penalize slightly.
-            if gpu['price_usd'] < user_inputs['budget'] * 0.5 and user_inputs['budget'] < 1000:
-                final_reco_score *= 0.95  # Slight penalty for going too cheap/overkill part
-
-            ranked_gpus.append({
-                'model': gpu['model'],
-                'reco_score': final_reco_score,
-                'price_usd': gpu['price_usd'],
-                'fuzzified_scores': {
-                    'budget': round(b_part, 2),
-                    'performance': round(p_part, 2),
-                    'resolution': round(r_part, 2)
-                }
-            })
-
-    # Sort the list by 'reco_score' in descending order
-    ranked_gpus.sort(key=lambda x: x['reco_score'], reverse=True)
-
-    return ranked_gpus
 # # Step 3: Run the fuzzified data through the fuzzy recommender.
 # if __name__ == '__main__':
 #
