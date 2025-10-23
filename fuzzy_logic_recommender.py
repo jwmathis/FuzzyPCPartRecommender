@@ -1,9 +1,41 @@
 import numpy as np
 import skfuzzy as fuzz
 from skfuzzy import control as ctrl
+import matplotlib.pyplot as plt
 
+# --- CONFIGURATION: Defining budget boundaries for the project ---
+MIN_BUDGET = 500 # Minimum dollar amount for a functional PC
+MAX_BUDGET = 3000 # Maximum high-end dollar amount the system considers 'high'
+
+
+# -------------------------------------------------
+# Budget normalization
+# -------------------------------------------------
+def normalize_budget(dollar_value):
+    """
+    Converts real-world dollar amount into the fuzzy system's 0-100 scale.
+    :param dollar_value:
+    :return:
+    """
+
+    # Calculate the range of the real-world budget
+    budget_range = MAX_BUDGET - MIN_BUDGET
+
+    if dollar_value <= MIN_BUDGET:
+        return 0.0
+    if dollar_value >= MAX_BUDGET:
+        return 100.0
+
+    # Calculate the position within the 0-100 scale
+    normalized_score = 100 * (dollar_value - MIN_BUDGET) / budget_range
+
+    # Ensure the score is exactly within the 0 to 100 bounds
+    return max(0.0, min(100.0, normalized_score))
+
+# -------------------------------------------------
 # 1. Fuzzification (Defining Fuzzy Variables and Membership functions)
-# Take crisp inputs and convert them into fuzzy sets.
+#       Take crisp inputs and convert them into fuzzy sets.
+# -------------------------------------------------
 
 # Input Variables (Antecedent)
 budget = ctrl.Antecedent(np.arange(0, 101, 1), 'budget')
@@ -14,9 +46,13 @@ preferred_resolution = ctrl.Antecedent(np.arange(0, 101, 1), 'preferred_resoluti
 # Will be the recommendation score for a given part, from 0 to 100
 recommendation_score = ctrl.Consequent(np.arange(0, 101, 1), 'recommendation_score')
 
-# Create Membership Functions for each variable
-# Using triangular membership functions for simplicity
-# Parameters are [start, peak, end] of the triangle
+
+# -------------------------------------------------
+# 2. Define Membership Functions (Fuzzy Sets)
+#       Create Membership Functions for each variable
+#       Using triangular membership functions for simplicity
+#       Parameters are [start, peak, end] of the triangle
+# -------------------------------------------------
 
 # Budget
 budget['low'] = fuzz.trimf(budget.universe, [0, 0, 50])
@@ -38,10 +74,12 @@ recommendation_score['low'] = fuzz.trimf(recommendation_score.universe, [0, 0, 5
 recommendation_score['medium'] = fuzz.trimf(recommendation_score.universe, [0, 50, 100])
 recommendation_score['high'] = fuzz.trimf(recommendation_score.universe, [50, 100, 100])
 
-# 2. Rule Evaluation
-# Defining a set of IF-THEN rules that link
-# the inputs to the desired output.
-# Example: IF budget is high AND performance is high, THEN the recommendation score is high
+# -------------------------------------------------
+# 3. Define the Fuzzy Rules (The Knowledge Base)
+#   Defining a set of IF-THEN rules that link
+#       the inputs to the desired output.
+#   Example: IF budget is high AND performance is high, THEN the recommendation score is high
+# -------------------------------------------------
 
 rules = [
     # High-end build rules
@@ -67,45 +105,78 @@ rules = [
     ctrl.Rule(preferred_resolution['medium'], recommendation_score['medium']),
 ]
 
-# Create the Fuzzy Control System
+# -------------------------------------------------
+# 4. Create Control System and Simulation
+# -------------------------------------------------
+
 reco_ctrl = ctrl.ControlSystem(rules)
 reco_sim = ctrl.ControlSystemSimulation(reco_ctrl)
 
-# 3. Defuzzification and Simulation
-# Create a function to use the system
-# Takes the fuzzy output and converts back to a single, crip number
+# -------------------------------------------------
+# 5. Defuzzification and Simulation
+#   Create a function to use the system
+#   Takes the fuzzy output and converts back to a single, crisp number
+# -------------------------------------------------
 
 def get_reco_score(budget_value, perf_value, resolution_value):
+    """
+    Runs fuzzy simulation with given crisp values
+    :param budget_value:
+    :param perf_value:
+    :param resolution_value:
+    :return:
+    """
     try:
         reco_sim.input['budget'] = budget_value
         reco_sim.input['performance_priority'] = perf_value
         reco_sim.input['preferred_resolution'] = resolution_value
 
+        # Compute the result
         reco_sim.compute()
 
+        # Extract defuzzified (crisp) output
         final_score = reco_sim.output['recommendation_score']
         return final_score
+
     except ValueError as e:
-        print(f"Error computing fuzzy logic: {e}")
+        print(f"Error during simulation while computing fuzzy logic: {e}. Check if inputs are within the defined universe.")
         return None
 
-# --- Example Usage ---
-# Test Case 1: High budget, high performance, high resolution (4K)
-print("Case 1: High Budget, High Performance, 4K Resolution")
-score1 = get_reco_score(90, 95, 95)
-print(f"Final Recommendation Score: {score1:.2f}\n")
+# ------------------------
+# Graphs for display
+# ------------------------
+# budget.view()
+# performance_priority.view()
+# preferred_resolution.view()
+# recommendation_score.view()
+#
+# plt.show()
 
-# Test Case 2: Medium budget, medium performance, medium resolution (1440p)
-print("Case 2: Medium Budget, Medium Performance, 1440p Resolution")
-score2 = get_reco_score(50, 50, 50)
-print(f"Final Recommendation Score: {score2:.2f}\n")
-
-# Test Case 3: Low budget, low performance, but high resolution (4K)
-print("Case 3: Low Budget, Low Performance, 4K Resolution")
-score3 = get_reco_score(25, 30, 90)
-print(f"Final Recommendation Score: {score3:.2f}\n")
-
-# Test Case 4: Low budget, low performance, low resolution (1080p)
-print("Case 4: Low Budget, Low Performance, 1080p Resolution")
-score4 = get_reco_score(25, 30, 10)
-print(f"Final Recommendation Score: {score4:.2f}\n")
+# # --- Example Usage ---
+# # Test Case 1: High budget, high performance, high resolution (4K)
+# budget_d1 = 2800
+# budget_n1 = normalize_budget(budget_d1)
+# print(f"Case 1: High Budget (${budget_d1}) -> Normalized Score: {budget_n1:.2f}, High Performance, 4K Resolution")
+# score1 = get_reco_score(budget_n1, 95, 95)
+# print(f"Final Recommendation Score: {score1:.2f}\n")
+#
+# # Test Case 2: Medium budget, medium performance, medium resolution (1440p)
+# budget_d2 = 1750
+# budget_n2 = normalize_budget(budget_d2)
+# print(f"Case 2: Medium Budget (${budget_d2}) -> Normalized Score: {budget_n2:.2f}, Medium Performance, 1440p Resolution")
+# score2 = get_reco_score(50, 50, 50)
+# print(f"Final Recommendation Score: {score2:.2f}\n")
+#
+# # Test Case 3: Low budget, low performance, but high resolution (4K)
+# budget_d3 = 800
+# budget_n3 = normalize_budget(budget_d3)
+# print(f"Case 3: Low Budget (${budget_d3}) -> Normalized Score: {budget_n3:.2f}, Low Performance, 4K Resolution")
+# score3 = get_reco_score(25, 30, 90)
+# print(f"Final Recommendation Score: {score3:.2f}\n")
+#
+# # Test Case 4: Low budget, low performance, low resolution (1080p)
+# budget_d4 = 500
+# budget_n4 = normalize_budget(budget_d4)
+# print(f"Case 4: Low Budget (${budget_d4}) -> Normalized Score: {budget_n4:.2f}, Low Performance, 1080p Resolution")
+# score4 = get_reco_score(25, 30, 10)
+# print(f"Final Recommendation Score: {score4:.2f}\n")

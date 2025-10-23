@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PC Part Recommender</title>
+    <link rel="stylesheet" href="">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        /* This is for all browsers that support accent-color */
+        input[type="range"] {
+            accent-color: #0d9488; /* Tailwind's teal-600 */
+        }
+
+        /* Specific styling for Firefox's range slider */
+        input[type="range"]::-moz-range-thumb {
+            background-color: #0d9488;
+        }
+
+        input[type="range"]::-moz-range-track {
+            background-color: #d1d5db; /* A light gray for the track */
+        }
+
+        /* And for webkit browsers (Chrome, Edge, Safari) */
+        input[type="range"]::-webkit-slider-thumb {
+            background-color: #0d9488;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-left-color: #ffffff;
+            border-radius: 50%;
+            width: 1.5rem;
+            height: 1.5rem;
+            animation: spin 1s linear infinite;
+            display: inline-block; /* Ensure it's not block level */
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 font-sans antialiased transition-colors duration-300">
+        <div class="container mx-auto p-8">
+            <header class="text-center mb-12">
+                <h1 class="text-5xl font-extrabold mb-4 text-gray-800 dark:text-white md:text-5xl">FuzzyBuilds</h1>
+                <p class="text-gray-600 dark:text-gray-400 text-xl">Find the perfect build for your needs using fuzzy logic</p>
+            </header>
+            <section class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl dark:shadow-md dark:shadow-teal-500/20">
+                <h2 class="text-3xl font-semibold mb-6 text-gray-800 dark:text-gray-200">Your Preferences</h2>
+                <form id="preferences-form" class="space-y-8">
+
+                    <div>
+                        <label for="budget" class="text-lg text-gray-700 dark:text-gray-300" >Budget ($): <span id="budget-value" class="font-bold text-teal-600 dark:text-teal-400">$1500</span></label>
+                        <input type="range" id="budget" name="budget" min="500" max="3000" value="1500" step="50" class="w-full h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-500 cursor-pointer">
+                    </div>
+
+                    <div>
+                        <label for="performance" class="text-lg text-gray-700 dark:text-gray-300" >Performance Priority: <span id="performance-priority-value" class="font-bold text-teal-600 dark:text-teal-400">7</span></label>
+                        <input type="range" id="performance" name="performance" min="1" max="10" value="7"  class="w-full h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-500 cursor-pointer">
+                        <div class="flex justify-between text-sm text-gray-500 dark:text-gray-400 mt-2">
+                            <span>Casual Use</span>
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                            <span>Enthusiast</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="aesthetics" class="text-lg text-gray-700 dark:text-gray-300" >Preferred Resolution:</label>
+                        <input type="range" id="aesthetics" name="aesthetics" min="1" max="3" value="2"  class="w-full h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-500 cursor-pointer">
+                        <div class="flex justify-between text-sm text-gray-500 dark:text-gray-400 mt-2">
+                            <span>Low Resolution (1080p)</span>
+                            <span></span>
+                            <span>High Resolution (4K)</span>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="submit-button" class="w-full py-4 bg-teal-600 text-lg font-semibold rounded-lg hover:bg-teal-700 transition duration-300 text-white flex items-center justify-center space-x-2" aria-label="Get Recommendations">
+                        <span id="button-text">Get Recommendations</span>
+                        <span id="spinner" class="spinner hidden"></span>
+                    </button>
+
+                </form>
+            </section>
+
+            <section id="recommendations-section" class="hidden">
+                <h2 class="text-3xl font-semibold mt-12 mb-6 text-gray-800 dark:text-gray-200 text-center">Your Recommendations</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                    <div id="cpu-card" class="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-lg dark:shadow-md dark:shadow-teal-500/20">
+                        <h3 class="text-xl font-bold text-teal-600 dark:text-teal-400">CPU</h3>
+                        <div class="space-y-2 part-details">
+                            <p class="text-lg text-gray-700 dark:text-gray-300">Name: <span class="font-bold part-name">Loading...</span></p>
+                            <p class="text-lg text-gray-700 dark:text-gray-300">Score: <span class="font-bold text-orange-600 dark:text-orange-400 part-score">--%</span></p>
+                        </div>
+                    </div>
+
+                    <div id="gpu-card" class="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-lg dark:shadow-md dark:shadow-teal-500/20">
+                        <h3 class="text-xl font-bold text-teal-600 dark:text-teal-400">GPU</h3>
+                        <div class="space-y-2 part-details">
+                            <p class="text-lg text-gray-700 dark:text-gray-300">Name: <span class="font-bold part-name">Loading...</span></p>
+                            <p class="text-lg text-gray-700 dark:text-gray-300">Score: <span class="font-bold text-orange-600 dark:text-orange-400 part-score">--%</span></p>
+                            </div>
+                    </div>
+
+                    <div id="motherboard-card" class="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-lg dark:shadow-md dark:shadow-teal-500/20">
+                        <h3 class="text-xl font-bold text-teal-600 dark:text-teal-400">Motherboard</h3>
+                        <div class="space-y-2 part-details">
+                            <p class="text-lg text-gray-700 dark:text-gray-300">Name: <span class="font-bold part-name">Loading...</span></p>
+                            <p class="text-lg text-gray-700 dark:text-gray-300">Score: <span class="font-bold text-orange-600 dark:text-orange-400 part-score">--%</span></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+       <script>
+           // budget slider
+        const budgetSlider = document.getElementById('budget');
+        const budgetValue = document.getElementById('budget-value');
+
+        // performance priority slider
+        const performanceSlider = document.getElementById('performance');
+        const performanceValue = document.getElementById('performance-priority-value');
+
+        // resolution/aesthetics slider
+        const resolutionSlider = document.getElementById('aesthetics');
+
+        const form = document.getElementById('preferences-form');
+        const recommendationsSection = document.getElementById('recommendations-section');
+
+        // References to the submit button elements (must be retrieved inside the event listener or after the DOM loads)
+        const submitButton = document.getElementById('submit-button');
+        const buttonText = document.getElementById('button-text');
+        const spinner = document.getElementById('spinner');
+
+        // Update budget value as slider moves
+        budgetSlider.addEventListener('input', () => {
+            budgetValue.textContent = `$${budgetSlider.value}`;
+        });
+
+        // Update performance priority value as slider moves
+        performanceSlider.addEventListener('input', () => {
+            performanceValue.textContent = `${performanceSlider.value}/10`;
+        });
+
+        // Update resolution priority (optional display text for 1-3)
+        resolutionSlider.addEventListener('input', () => {
+            // Optional: You could update a text label here based on the 1, 2, or 3 value
+        });
+
+        // Initial update of slider values
+        window.addEventListener('load', () => {
+             budgetValue.textContent = `$${budgetSlider.value}`;
+             performanceValue.textContent = `${performanceSlider.value}/10`;
+        });
+
+        // --- Recommendation Rendering ---
+
+        // Helper function to update a single part card
+        function updatePartCard(partType, data) {
+            const card = document.getElementById(`${partType.toLowerCase()}-card`);
+            if (!card) return;
+
+            // Build the HTML details block
+            let detailsHtml = `<p class="text-lg text-gray-700 dark:text-gray-300">Name: <span class="font-bold part-name">${data.name}</span></p>
+                               <p class="text-lg text-gray-700 dark:text-gray-300">Score: <span class="font-bold text-orange-600 dark:text-orange-400 part-score">${data.score}</span></p>`;
+
+            // Special detail for the GPU (to show price)
+            if (partType === 'GPU' && data.price) {
+                detailsHtml += `<p class="text-lg text-gray-700 dark:text-gray-300">Price: <span class="font-bold text-teal-600 dark:text-teal-400">$${data.price.toLocaleString()}</span></p>`;
+            }
+
+            card.querySelector('.part-details').innerHTML = detailsHtml;
+        }
+
+        // The main rendering function
+        function renderRecommendations(data) {
+            // Update the individual cards based on the JSON keys (CPU, GPU, Motherboard)
+            updatePartCard('CPU', data.CPU);
+            updatePartCard('GPU', data.GPU);
+            updatePartCard('Motherboard', data.Motherboard);
+
+            // Show the section
+            recommendationsSection.classList.remove('hidden');
+            window.scrollTo({
+                top: recommendationsSection.offsetTop - 50,
+                behavior: 'smooth'
+            });
+        }
+
+
+         // --- Handle Form Submission (The Core Logic) ---
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // 1. Show loading state
+            submitButton.disabled = true;
+            buttonText.textContent = 'Analyzing...';
+            spinner.classList.remove('hidden');
+            recommendationsSection.classList.add('hidden'); // Hide previous results
+
+            // 2. Collect user inputs
+            const userInputs = {
+                // Ensure values are numbers
+                budget: parseFloat(budgetSlider.value),
+                performance: parseInt(performanceSlider.value, 10), // Correct HTML ID
+                aesthetics: parseInt(resolutionSlider.value, 10) // Correct HTML ID, maps to resolution
+            };
+
+            try {
+                // 3. Send data to Flask backend
+                const response = await fetch('/recommend', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(userInputs)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`HTTP error! status: ${response.status}: ${errorData.error || response.statusText}`);
+                }
+
+                // 4. Receive and process JSON response (It will be the single build object)
+                const data = await response.json();
+
+                // 5. Render results
+                renderRecommendations(data);
+
+            } catch (error) {
+                console.error('Error fetching recommendations:', error);
+                // Clear and display error message
+                document.getElementById('recommendations-section').innerHTML = '<h2 class="text-3xl font-semibold mt-12 mb-6 text-gray-800 dark:text-gray-200 text-center">Your Recommendations</h2><p class="text-red-500 col-span-full text-center p-8 text-lg">An error occurred while fetching recommendations. Check the console for details.</p>';
+                recommendationsSection.classList.remove('hidden');
+            } finally {
+                // 6. Hide loading state and scroll to results
+                submitButton.disabled = false;
+                buttonText.textContent = 'Get Recommendations';
+                spinner.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
