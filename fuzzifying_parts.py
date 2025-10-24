@@ -89,7 +89,7 @@ def fuzzify_gpu_data(gpu_data):
     return budget_score, perf_score, resolution_score
 
 
-# Assuming 'fuzzifying_gpu_data.py' is now 'fuzzifying_parts.py'
+# Assuming 'fuzzifying_parts.py' is now 'fuzzifying_parts.py'
 
 # Define max scores for normalization based on your dataset
 MAX_SINGLE_CORE = 5000
@@ -129,10 +129,24 @@ def fuzzify_cpu_data(cpu_data):
 
 
 # Rename get_gpu_recommendations to a generic function
-def get_best_part_recommendation(user_inputs, part_dataset, fuzzification_func, part_price_key='price_usd'):
+def get_best_part_recommendation(user_inputs, part_dataset, fuzzification_func, part_type='CPU', part_price_key='price_usd'):
     """
     Calculates the final recommendation score for any part type based on user inputs.
     """
+    # 1. Determine the correct ALLOCATED budget based on the part type
+    if part_type == 'GPU':
+        # Assumes this value was calculated in app.py (e.g., total_budget * 0.45)
+        allocated_budget = user_inputs['allocated_gpu_budget']
+    elif part_type == 'CPU':
+        # Assumes this value was calculated in app.py (e.g., total_budget * 0.25)
+        allocated_budget = user_inputs['allocated_cpu_budget']
+    else:
+        # Fallback or error handling for unassigned parts
+        allocated_budget = user_inputs['budget'] / 3
+
+    # Map user's overall total budget preference to a 0-100 scale
+    user_budget_n = normalize_budget(user_inputs['budget'])
+
     ranked_parts = []
 
     # 1. Map user inputs to the fuzzy system's 0-100 scale (done only once)
@@ -156,10 +170,23 @@ def get_best_part_recommendation(user_inputs, part_dataset, fuzzification_func, 
         # --- 2. Apply Hard Budget Penalty (Crisp Filter) ---
         part_price = part.get(part_price_key, 0)
 
-        if part_price > user_inputs['budget']:
-            exceed_ratio = (part_price - user_inputs['budget']) / user_inputs['budget']
-            penalty_factor = max(0.1, 1 - (exceed_ratio * 0.5))
+        if part_price > allocated_budget:
+            # 1. Calculate how much the price exceeds the ALLOCATED budget as a ratio
+            exceed_ratio = (part_price - allocated_budget) / allocated_budget
+
+            # 2. Apply a penalty factor. The more it exceeds, the lower the factor.
+            # Example: 100% over budget (exceed_ratio=1.0) leads to 1 - (1.0 * 0.75) = 0.25 factor
+            # 0% over budget (exceed_ratio=0) leads to 1.0 factor (no penalty)
+            # Ensure the penalty factor does not drop below 0.1 to avoid giving a score of 0.
+            penalty_factor = max(0.1, 1 - (exceed_ratio * 0.75))
+
             final_reco_score = reco_score_raw * penalty_factor
+
+            # --- Step C: Apply Small Efficiency Bonus (Optional, but useful) ---
+            # Reward parts that are good value and come in under the allocated budget threshold
+        elif part_price <= allocated_budget * 0.95:
+            # Apply a minor bonus if the part price is 5% or more under the allocated budget
+            final_reco_score = min(100.0, reco_score_raw * 1.05)
 
         # Optional: Apply slight budget efficiency/overkill penalty here if needed
 

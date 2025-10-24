@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request, render_template_string
 # Update imports from the renamed file
-from fuzzifying_gpu_data import (
+from fuzzifying_parts import (
     get_best_part_recommendation,
     fuzzify_gpu_data,
     fuzzify_cpu_data # New CPU fuzzifier
@@ -40,12 +40,27 @@ def recommend_parts():
     # Define the number of recommendations you want
     NUM_RECOMMENDATIONS = 3
 
+    GPU_BUDGET_RATIO = 0.45
+    CPU_BUDGET_RATIO = 0.25
+
+    # User's total budget
+    total_budget = user_inputs_clean['budget']
+
+    # Calculate allocated budget for each part
+    allocated_gpu_budget = total_budget * GPU_BUDGET_RATIO
+    allocated_cpu_budget = total_budget * CPU_BUDGET_RATIO
+
+    # Update user_inputs_clean for recommendation functions
+    user_inputs_clean['allocated_gpu_budget'] = allocated_gpu_budget
+    user_inputs_clean['allocated_cpu_budget'] = allocated_cpu_budget
+
     # 1. Get ranked GPUs
     # Note: We only pass p_part and r_part, skipping b_part, as the generic function expects 2 capability scores.
     ranked_gpus = get_best_part_recommendation(
         user_inputs_clean,
         gpu_dataset,
-        lambda part: (fuzzify_gpu_data(part)[1], fuzzify_gpu_data(part)[2])
+        lambda part: (fuzzify_gpu_data(part)[1], fuzzify_gpu_data(part)[2]),
+        'gpu'
     )
 
     # 2. Get ranked CPUs
