@@ -145,12 +145,12 @@ def get_reco_score(budget_value, perf_value, resolution_value):
 # ------------------------
 # Graphs for display
 # ------------------------
-# budget.view()
-# performance_priority.view()
-# preferred_resolution.view()
-# recommendation_score.view()
-#
-# plt.show()
+budget.view()
+performance_priority.view()
+preferred_resolution.view()
+recommendation_score.view()
+
+plt.show()
 
 # # --- Example Usage ---
 # # Test Case 1: High budget, high performance, high resolution (4K)
