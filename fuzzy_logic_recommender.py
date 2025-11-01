@@ -152,31 +152,3 @@ recommendation_score.view()
 
 plt.show()
 
-# # --- Example Usage ---
-# # Test Case 1: High budget, high performance, high resolution (4K)
-# budget_d1 = 2800
-# budget_n1 = normalize_budget(budget_d1)
-# print(f"Case 1: High Budget (${budget_d1}) -> Normalized Score: {budget_n1:.2f}, High Performance, 4K Resolution")
-# score1 = get_reco_score(budget_n1, 95, 95)
-# print(f"Final Recommendation Score: {score1:.2f}\n")
-#
-# # Test Case 2: Medium budget, medium performance, medium resolution (1440p)
-# budget_d2 = 1750
-# budget_n2 = normalize_budget(budget_d2)
-# print(f"Case 2: Medium Budget (${budget_d2}) -> Normalized Score: {budget_n2:.2f}, Medium Performance, 1440p Resolution")
-# score2 = get_reco_score(50, 50, 50)
-# print(f"Final Recommendation Score: {score2:.2f}\n")
-#
-# # Test Case 3: Low budget, low performance, but high resolution (4K)
-# budget_d3 = 800
-# budget_n3 = normalize_budget(budget_d3)
-# print(f"Case 3: Low Budget (${budget_d3}) -> Normalized Score: {budget_n3:.2f}, Low Performance, 4K Resolution")
-# score3 = get_reco_score(25, 30, 90)
-# print(f"Final Recommendation Score: {score3:.2f}\n")
-#
-# # Test Case 4: Low budget, low performance, low resolution (1080p)
-# budget_d4 = 500
-# budget_n4 = normalize_budget(budget_d4)
-# print(f"Case 4: Low Budget (${budget_d4}) -> Normalized Score: {budget_n4:.2f}, Low Performance, 1080p Resolution")
-# score4 = get_reco_score(25, 30, 10)
-# print(f"Final Recommendation Score: {score4:.2f}\n")
