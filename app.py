@@ -3,10 +3,12 @@ from flask import Flask, jsonify, request, render_template_string
 from fuzzifying_parts import (
     get_best_part_recommendation,
     fuzzify_gpu_data,
-    fuzzify_cpu_data # New CPU fuzzifier
+    fuzzify_cpu_data,
+    fuzzify_mb_data
 )
 from gpu_data import gpu_dataset
-from cpu_data import cpu_dataset # New CPU data import
+from cpu_data import cpu_dataset
+from motherboard_data import motherboard_dataset
 
 app = Flask(__name__)
 
@@ -41,18 +43,20 @@ def recommend_parts():
     NUM_RECOMMENDATIONS = 3
 
     GPU_BUDGET_RATIO = 0.45
-    CPU_BUDGET_RATIO = 0.25
-
+    CPU_BUDGET_RATIO = 0.30
+    MB_BUDGET_RATIO = 0.25
     # User's total budget
     total_budget = user_inputs_clean['budget']
 
     # Calculate allocated budget for each part
     allocated_gpu_budget = total_budget * GPU_BUDGET_RATIO
     allocated_cpu_budget = total_budget * CPU_BUDGET_RATIO
+    allocated_mb_budget = total_budget * MB_BUDGET_RATIO
 
     # Update user_inputs_clean for recommendation functions
     user_inputs_clean['allocated_gpu_budget'] = allocated_gpu_budget
     user_inputs_clean['allocated_cpu_budget'] = allocated_cpu_budget
+    user_inputs_clean['allocated_mb_budget'] = allocated_mb_budget
 
     # 1. Get ranked GPUs
     # Note: We only pass p_part and r_part, skipping b_part, as the generic function expects 2 capability scores.
@@ -67,7 +71,16 @@ def recommend_parts():
     ranked_cpus = get_best_part_recommendation(
         user_inputs_clean,
         cpu_dataset,
-        fuzzify_cpu_data
+        fuzzify_cpu_data,
+        'CPU'
+    )
+
+    # 3. Get ranked MBs
+    ranked_mb = get_best_part_recommendation(
+        user_inputs_clean,
+        motherboard_dataset,
+        lambda part: (fuzzify_mb_data(part)[1], fuzzify_mb_data(part)[2]),
+        'MB'
     )
 
     if not ranked_gpus or not ranked_cpus:
@@ -76,17 +89,13 @@ def recommend_parts():
     # 3. Select the top N parts
     top_cpus = ranked_cpus[:NUM_RECOMMENDATIONS]
     top_gpus = ranked_gpus[:NUM_RECOMMENDATIONS]
+    top_mbs = ranked_mb[:NUM_RECOMMENDATIONS]
 
     # 4. Create the final response structure with arrays
     final_recommendation = {
         "CPU_Recommendations": top_cpus,
         "GPU_Recommendations": top_gpus,
-        # Keep the Motherboard as a placeholder for consistency
-        "Motherboard": {
-            "model": "MOCK Motherboard (Placeholder)",
-            "reco_score": 0.00,
-            "price_usd": 0.00
-        }
+        "MB_Recommendations": top_mbs,
     }
 
     # 5. Return the structured JSON

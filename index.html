@@ -76,7 +76,7 @@
                         <input type="range" id="aesthetics" name="aesthetics" min="1" max="3" value="2"  class="w-full h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-500 cursor-pointer">
                         <div class="flex justify-between text-sm text-gray-500 dark:text-gray-400 mt-2">
                             <span>Low Resolution (1080p)</span>
-                            <span></span>
+                            <span>Medium Resolution (1440p)</span>
                             <span>High Resolution (4K)</span>
                         </div>
                     </div>
@@ -100,16 +100,9 @@
                 <div id="gpu-recommendation-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                     </div>
 
-                <h3 class="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-200">Recommended Motherboard</h3>
-                <div id="motherboard-card-container" class="max-w-md mx-auto">
-                     <div id="motherboard-card" class="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-lg dark:shadow-md dark:shadow-teal-500/20">
-                        <h3 class="text-xl font-bold text-teal-600 dark:text-teal-400">Motherboard</h3>
-                        <div class="space-y-2 part-details">
-                            <p class="text-lg text-gray-700 dark:text-gray-300">Name: <span class="font-bold part-name">Loading...</span></p>
-                            <p class="text-lg text-gray-700 dark:text-gray-300">Score: <span class="font-bold text-orange-600 dark:text-orange-400 part-score">--%</span></p>
-                        </div>
+                <h3 class="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-200">Top Motherboard Recommendations</h3>
+                <div id="mb-recommendation-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                     </div>
-                </div>
             </section>
 
         </div>
@@ -176,11 +169,12 @@
         function renderRecommendations(data) {
             const cpuListContainer = document.getElementById('cpu-recommendation-list');
             const gpuListContainer = document.getElementById('gpu-recommendation-list');
-            const mbCardContainer = document.getElementById('motherboard-card');
+            const mbListContainer = document.getElementById('mb-recommendation-list');
 
             // Clear previous results
             cpuListContainer.innerHTML = '';
             gpuListContainer.innerHTML = '';
+            mbListContainer.innerHTML = '';
 
             // 1. Render CPU List
             data.CPU_Recommendations.forEach((cpu, index) => {
@@ -192,11 +186,10 @@
                 gpuListContainer.insertAdjacentHTML('beforeend', createPartCardHTML(gpu, index, 'GPU'));
             });
 
-            // 3. Render Motherboard Placeholder (Single Card)
-            // Note: Since Motherboard is still mock data, we update its placeholder.
-            const mbData = data.Motherboard;
-            mbCardContainer.querySelector('.part-name').textContent = mbData.model;
-            mbCardContainer.querySelector('.part-score').textContent = mbData.reco_score.toFixed(2) + '%';
+            // 3. Render Motherboard List
+            data.MB_Recommendations.forEach((mb, index) => {
+                mbListContainer.insertAdjacentHTML('beforeend', createPartCardHTML(mb, index, 'MB'));
+            });
 
 
             // Show the section and scroll

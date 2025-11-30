@@ -3,6 +3,16 @@ import skfuzzy as fuzz
 from skfuzzy import control as ctrl
 from fuzzy_logic_recommender import get_reco_score, normalize_budget
 
+# Motherboard Chipset Hierarchy for Capability Scoring (0-100)
+CHIPSET_PERFORMANCE_SCORES = {
+    # High-End (Overclocking, Max I/O, DDR5)
+    'X670E': 100, 'Z790': 95,
+    # Mid-Range (Good I/O, some OC, likely DDR5)
+    'B650': 75, 'B760': 70, 'X570': 60,
+    # Budget/Entry (Basic, limited I/O/OC, often DDR4)
+    'B550': 45, 'H610': 30
+}
+
 # Helper function to map user preference scales (1-10 or 1-3) to a 0-100 fuzzy input scale
 def map_user_input_to_100(value, max_scale):
     """Maps a user input (e.g., 1-10) to the fuzzy system's 0-100 universe"""
@@ -127,6 +137,45 @@ def fuzzify_cpu_data(cpu_data):
     # Return the part's CAPABILITY scores
     return perf_score_part, resolution_score_part  # Only two scores needed
 
+def fuzzify_mb_data(mb_data):
+    """
+    Translates raw Motherboard specs into normalized 0-100 scores for Price and Performance.
+    :param mb_data:
+    :return: (budget score, perf_score, resolution_score - mapped to Feature Score)
+    """
+
+    # 2.1 Fuzzify budget
+    min_price = 500
+    max_price = 3000
+
+    price_range = max_price - min_price
+    if price_range <= 0:
+        budget_score = 50.0
+    else:
+        # Calculate normalized price (0 if min_price, 100 if max_price)
+        normalized_price = 100 * (mb_data['price_usd'] - min_price) / price_range
+        # Invert the score: 100 for low price, 0 for high price
+        budget_score = 100 - normalized_price
+
+    budget_score = max(0, min(100, budget_score))  # Clamp
+
+    # 2.2 Fuzzify Performance score (based on Chipset Tier)
+    chipset = mb_data['chipset']
+    perf_score = CHIPSET_PERFORMANCE_SCORES.get(chipset, 30) # Default to low score
+
+    # Apply a boost for DDR5 generation (future-proofing/highest speeds)
+    if mb_data['ram_gen'] == 'DDR5':
+        perf_score = min(100, perf_score + 10)
+    # 2.3 Fuzzify future-proofing socre (mapped to resolution score)
+    future_proofing_score = 0
+    if mb_data['ram_gen'] == 'DDR5':
+        future_proofing_score += 50 # Base for DDR5
+    if 'E' in chipset or 'Z' in chipset: # High-end chipsets (X670E, Z790)
+        future_proofing_score += 40
+
+    resolution_score = max(10, min(100, future_proofing_score))
+
+    return budget_score, perf_score, resolution_score
 
 # Rename get_gpu_recommendations to a generic function
 def get_best_part_recommendation(user_inputs, part_dataset, fuzzification_func, part_type='CPU', part_price_key='price_usd'):
@@ -138,14 +187,15 @@ def get_best_part_recommendation(user_inputs, part_dataset, fuzzification_func, 
         # Assumes this value was calculated in app.py (e.g., total_budget * 0.45)
         allocated_budget = user_inputs['allocated_gpu_budget']
     elif part_type == 'CPU':
-        # Assumes this value was calculated in app.py (e.g., total_budget * 0.25)
+        # Assumes this value was calculated in app.py (e.g., total_budget * 0.30)
         allocated_budget = user_inputs['allocated_cpu_budget']
+    elif part_type == 'MB':
+        # Assumes this value was calculated in app.py (e.g., total_budget * 0.25)
+        allocated_budget = user_inputs['allocated_mb_budget']
     else:
         # Fallback or error handling for unassigned parts
         allocated_budget = user_inputs['budget'] / 3
 
-    # Map user's overall total budget preference to a 0-100 scale
-    user_budget_n = normalize_budget(user_inputs['budget'])
 
     ranked_parts = []
 
