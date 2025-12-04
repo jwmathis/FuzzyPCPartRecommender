@@ -59,7 +59,6 @@ def recommend_parts():
     user_inputs_clean['allocated_mb_budget'] = allocated_mb_budget
 
     # 1. Get ranked GPUs
-    # Note: We only pass p_part and r_part, skipping b_part, as the generic function expects 2 capability scores.
     ranked_gpus = get_best_part_recommendation(
         user_inputs_clean,
         gpu_dataset,
@@ -110,5 +109,4 @@ def index():
 
 
 if __name__ == '__main__':
-    # Flask is usually run using 'flask run', but this structure works for simple execution.
     app.run(debug=True)

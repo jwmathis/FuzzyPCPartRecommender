@@ -70,9 +70,10 @@ preferred_resolution['medium'] = fuzz.trimf(preferred_resolution.universe, [0, 5
 preferred_resolution['high'] = fuzz.trimf(preferred_resolution.universe, [50, 100, 100])
 
 # Recommendation Score (Output)
-recommendation_score['low'] = fuzz.trimf(recommendation_score.universe, [0, 0, 50])
-recommendation_score['medium'] = fuzz.trimf(recommendation_score.universe, [0, 50, 100])
-recommendation_score['high'] = fuzz.trimf(recommendation_score.universe, [50, 100, 100])
+recommendation_score['low'] = fuzz.trimf(recommendation_score.universe, [0, 25, 50])
+recommendation_score['medium'] = fuzz.trimf(recommendation_score.universe, [25, 50, 75])
+recommendation_score['high'] = fuzz.trimf(recommendation_score.universe, [50, 75, 100])
+recommendation_score['excellent'] = fuzz.trimf(recommendation_score.universe, [75, 100, 100])
 
 # -------------------------------------------------
 # 3. Define the Fuzzy Rules (The Knowledge Base)
@@ -82,27 +83,47 @@ recommendation_score['high'] = fuzz.trimf(recommendation_score.universe, [50, 10
 # -------------------------------------------------
 
 rules = [
-    # High-end build rules
-    ctrl.Rule(budget['high'] & performance_priority['high'], recommendation_score['high']),
-    ctrl.Rule(budget['high'] & preferred_resolution['high'], recommendation_score['high']),
+    # --- A. Ideal / Sweet Spot Rules ---
+    # R1: The perfect match for high-end (Budget, Perf, Res all high)
+    ctrl.Rule(budget['high'] & performance_priority['high'] & preferred_resolution['high'], recommendation_score['excellent']),
+    # R2: The 'Sweet Spot' - Medium budget aligned with high demands. Highest score possible without extreme budget.
+    ctrl.Rule(budget['medium'] & performance_priority['high'] & preferred_resolution['high'], recommendation_score['high']),
+    # R3: High budget, but medium demands (Still high score because of budget room)
+    ctrl.Rule(budget['high'] & performance_priority['medium'] & preferred_resolution['medium'], recommendation_score['high']),
+    # R4: The Competitive Gamer Setup - NEW RULE D
+    ctrl.Rule(budget['medium'] & performance_priority['high'] & preferred_resolution['low'], recommendation_score['high']),
+    # R5: Medium match (Medium budget, medium demands)
+    ctrl.Rule(budget['medium'] & performance_priority['medium'] & preferred_resolution['medium'], recommendation_score['medium']),
 
-    # Medium build rules
-    ctrl.Rule(budget['medium'] & performance_priority['medium'], recommendation_score['medium']),
-    ctrl.Rule(budget['medium'] & preferred_resolution['medium'], recommendation_score['medium']),
-    ctrl.Rule(budget['medium'] & performance_priority['low'] & preferred_resolution['low'], recommendation_score['low']),
 
-    # Budget-focused rules
-    ctrl.Rule(budget['low'] & performance_priority['high'], recommendation_score['medium']),
-    ctrl.Rule(budget['low'] & performance_priority['low'], recommendation_score['low']),
+    # --- B. Conflict / Compromise Rules ---
+    # R6: Medium Budget, but demands are HIGH (Compromise required)
+    ctrl.Rule(budget['medium'] & performance_priority['high'], recommendation_score['medium']),
+    # R7: Low Budget, but demands are HIGH (Major compromise)
+    ctrl.Rule(budget['low'] & performance_priority['high'] & preferred_resolution['high'], recommendation_score['low']),
+    # R8: Low Budget, Medium Demands (Requires compromise)
+    ctrl.Rule(budget['low'] & performance_priority['medium'], recommendation_score['low']),
+    # R9: Low Budget, High Resolution (The Media PC Conflict)
     ctrl.Rule(budget['low'] & preferred_resolution['high'], recommendation_score['medium']),
+    # R10: Budget 1440p Media - NEW RULE E
+    ctrl.Rule(budget['low'] & performance_priority['low'] & preferred_resolution['medium'], recommendation_score['medium']),
 
-    # Performance-focused rules
-    ctrl.Rule(performance_priority['high'], recommendation_score['high']),
-    ctrl.Rule(performance_priority['medium'], recommendation_score['medium']),
 
-    # resolution-focused rules
-    ctrl.Rule(preferred_resolution['high'], recommendation_score['high']),
-    ctrl.Rule(preferred_resolution['medium'], recommendation_score['medium']),
+    # --- C. Penalties / Overkill Rules ---
+    # R11: High Budget, but low demands (Initial Overkill Penalty)
+    ctrl.Rule(budget['high'] & preferred_resolution['low'], recommendation_score['medium']),
+    # R12: High Budget, No Demands (Final Catch-all Overkill Penalty) - NEW RULE F
+    ctrl.Rule(budget['high'] & performance_priority['low'], recommendation_score['medium']),
+    # R13: The "Good Enough" Baseline - Medium Budget, Low Demands
+    ctrl.Rule(budget['medium'] & performance_priority['low'] & preferred_resolution['low'], recommendation_score['medium']),
+
+
+    # --- D. Remaining combinations (Focus on primary goal if others are neutral) ---
+    # R14: Performance-Resolution Balance
+    ctrl.Rule(performance_priority['medium'] & preferred_resolution['high'], recommendation_score['high']),
+    # R15: Baseline low budget build
+    ctrl.Rule(budget['low'] & performance_priority['low'] & preferred_resolution['low'], recommendation_score['low']),
+
 ]
 
 # -------------------------------------------------
