@@ -37,14 +37,19 @@ def normalize_budget(dollar_value):
 #       Take crisp inputs and convert them into fuzzy sets.
 # -------------------------------------------------
 
-# Input Variables (Antecedent)
-budget = ctrl.Antecedent(np.arange(0, 101, 1), 'budget')
-performance_priority = ctrl.Antecedent(np.arange(0, 101, 1), 'performance_priority')
-preferred_resolution = ctrl.Antecedent(np.arange(0, 101, 1), 'preferred_resolution')
+UOD = np.arange(0, 101, 1)
 
-# Output variable (Consequent)
-# Will be the recommendation score for a given part, from 0 to 100
-recommendation_score = ctrl.Consequent(np.arange(0, 101, 1), 'recommendation_score')
+# --- Antecedent (Input) Variables ---
+
+# User's Budget Capability Score (0=Very Low, 100=Very High)
+budget = ctrl.Antecedent(UOD, 'budget')
+# Part's Performance Capability Score (0=Very Low, 100=Very High)
+performance_priority = ctrl.Antecedent(UOD, 'performance_priority')
+# Part's Resolution Capability Score (0=Very Low, 100=Very High)
+preferred_resolution = ctrl.Antecedent(UOD, 'preferred_resolution')
+
+# --- Consequent (Output) Variable ---
+recommendation_score = ctrl.Consequent(UOD, 'recommendation_score')
 
 
 # -------------------------------------------------
@@ -54,26 +59,26 @@ recommendation_score = ctrl.Consequent(np.arange(0, 101, 1), 'recommendation_sco
 #       Parameters are [start, peak, end] of the triangle
 # -------------------------------------------------
 
-# Budget
-budget['low'] = fuzz.trimf(budget.universe, [0, 0, 50])
-budget['medium'] = fuzz.trimf(budget.universe, [0, 50, 100])
-budget['high'] = fuzz.trimf(budget.universe, [50, 100, 100])
+# Input Membership Functions
+budget['low'] = fuzz.trapmf(UOD, [0, 0, 25, 50])
+budget['medium'] = fuzz.trimf(UOD, [25, 50, 75])
+budget['high'] = fuzz.trapmf(UOD, [50, 75, 100, 100])
 
-# Performance Priority
-performance_priority['low'] = fuzz.trimf(performance_priority.universe, [0, 0, 50])
-performance_priority['medium'] = fuzz.trimf(performance_priority.universe, [0, 50, 100])
-performance_priority['high'] = fuzz.trimf(performance_priority.universe, [50, 100, 100])
+performance_priority['low'] = fuzz.trapmf(UOD, [0, 0, 20, 50])
+performance_priority['medium'] = fuzz.trimf(UOD, [20, 50, 80])
+performance_priority['high'] = fuzz.trapmf(UOD, [50, 80, 100, 100])
 
-# resolution Priority
-preferred_resolution['low'] = fuzz.trimf(preferred_resolution.universe, [0, 0, 50])
-preferred_resolution['medium'] = fuzz.trimf(preferred_resolution.universe, [0, 50, 100])
-preferred_resolution['high'] = fuzz.trimf(preferred_resolution.universe, [50, 100, 100])
+preferred_resolution['low'] = fuzz.trapmf(UOD, [0, 0, 30, 60])
+preferred_resolution['medium'] = fuzz.trimf(UOD, [30, 60, 90])
+preferred_resolution['high'] = fuzz.trapmf(UOD, [60, 90, 100, 100])
 
-# Recommendation Score (Output)
-recommendation_score['low'] = fuzz.trimf(recommendation_score.universe, [0, 25, 50])
-recommendation_score['medium'] = fuzz.trimf(recommendation_score.universe, [25, 50, 75])
-recommendation_score['high'] = fuzz.trimf(recommendation_score.universe, [50, 75, 100])
-recommendation_score['excellent'] = fuzz.trimf(recommendation_score.universe, [75, 100, 100])
+# Output Membership Functions (Recommendation Score)
+recommendation_score['poor'] = fuzz.trapmf(UOD, [0, 0, 10, 30])
+recommendation_score['average'] = fuzz.trimf(UOD, [10, 40, 70])
+recommendation_score['high'] = fuzz.trimf(UOD, [40, 75, 95])
+recommendation_score['excellent'] = fuzz.trapmf(UOD, [70, 95, 100, 100])
+
+
 
 # -------------------------------------------------
 # 3. Define the Fuzzy Rules (The Knowledge Base)
@@ -81,49 +86,61 @@ recommendation_score['excellent'] = fuzz.trimf(recommendation_score.universe, [7
 #       the inputs to the desired output.
 #   Example: IF budget is high AND performance is high, THEN the recommendation score is high
 # -------------------------------------------------
+# Short aliases for clarity in rule definition
+BS_L, BS_M, BS_H = budget['low'], budget['medium'], budget['high']
+PC_L, PC_M, PC_H = performance_priority['low'], performance_priority['medium'], performance_priority['high']
+RC_L, RC_M, RC_H = preferred_resolution['low'], preferred_resolution['medium'], preferred_resolution['high']
+
+R_P, R_A, R_H, R_E = recommendation_score['poor'], recommendation_score['average'], recommendation_score['high'], recommendation_score['excellent']
 
 rules = [
-    # --- A. Ideal / Sweet Spot Rules ---
-    # R1: The perfect match for high-end (Budget, Perf, Res all high)
-    ctrl.Rule(budget['high'] & performance_priority['high'] & preferred_resolution['high'], recommendation_score['excellent']),
-    # R2: The 'Sweet Spot' - Medium budget aligned with high demands. Highest score possible without extreme budget.
-    ctrl.Rule(budget['medium'] & performance_priority['high'] & preferred_resolution['high'], recommendation_score['high']),
-    # R3: High budget, but medium demands (Still high score because of budget room)
-    ctrl.Rule(budget['high'] & performance_priority['medium'] & preferred_resolution['medium'], recommendation_score['high']),
-    # R4: The Competitive Gamer Setup - NEW RULE D
-    ctrl.Rule(budget['medium'] & performance_priority['high'] & preferred_resolution['low'], recommendation_score['high']),
-    # R5: Medium match (Medium budget, medium demands)
-    ctrl.Rule(budget['medium'] & performance_priority['medium'] & preferred_resolution['medium'], recommendation_score['medium']),
+    # --- 1. LOW Budget (BS_L) Rules (9 Rules) ---
+    # Low Performance Priority
+    ctrl.Rule(BS_L & PC_L & RC_L, R_P),       # Matched low-end target
+    ctrl.Rule(BS_L & PC_L & RC_M, R_P),       # Budget limits medium res goal
+    ctrl.Rule(BS_L & PC_L & RC_H, R_P),       # Major mismatch: too low budget for high res
 
+    # Medium Performance Priority
+    ctrl.Rule(BS_L & PC_M & RC_L, R_A),       # Slight overspend on part, but still limited by budget
+    ctrl.Rule(BS_L & PC_M & RC_M, R_A),       # Decent part, but budget is a constraint
+    ctrl.Rule(BS_L & PC_M & RC_H, R_P),       # Big mismatch: cannot achieve high res with low budget
 
-    # --- B. Conflict / Compromise Rules ---
-    # R6: Medium Budget, but demands are HIGH (Compromise required)
-    ctrl.Rule(budget['medium'] & performance_priority['high'], recommendation_score['medium']),
-    # R7: Low Budget, but demands are HIGH (Major compromise)
-    ctrl.Rule(budget['low'] & performance_priority['high'] & preferred_resolution['high'], recommendation_score['low']),
-    # R8: Low Budget, Medium Demands (Requires compromise)
-    ctrl.Rule(budget['low'] & performance_priority['medium'], recommendation_score['low']),
-    # R9: Low Budget, High Resolution (The Media PC Conflict)
-    ctrl.Rule(budget['low'] & preferred_resolution['high'], recommendation_score['medium']),
-    # R10: Budget 1440p Media - NEW RULE E
-    ctrl.Rule(budget['low'] & performance_priority['low'] & preferred_resolution['medium'], recommendation_score['medium']),
+    # High Performance Priority
+    ctrl.Rule(BS_L & PC_H & RC_L, R_H),       # Excellent value: Great part for a low-res target, despite budget
+    ctrl.Rule(BS_L & PC_H & RC_M, R_H),       # High value match: Best part for budget, good for mid-res
+    ctrl.Rule(BS_L & PC_H & RC_H, R_H),       # High value match: Max possible perf for high res, limited by budget
 
+    # --- 2. MEDIUM Budget (BS_M) Rules (9 Rules) ---
+    # Low Performance Priority
+    ctrl.Rule(BS_M & PC_L & RC_L, R_A),       # Overspending on a low-end part
+    ctrl.Rule(BS_M & PC_L & RC_M, R_A),       # Mismatch: Too much budget for low performance part
+    ctrl.Rule(BS_M & PC_L & RC_H, R_A),       # Mismatch: Low perf cannot hit high res, despite budget
 
-    # --- C. Penalties / Overkill Rules ---
-    # R11: High Budget, but low demands (Initial Overkill Penalty)
-    ctrl.Rule(budget['high'] & preferred_resolution['low'], recommendation_score['medium']),
-    # R12: High Budget, No Demands (Final Catch-all Overkill Penalty) - NEW RULE F
-    ctrl.Rule(budget['high'] & performance_priority['low'], recommendation_score['medium']),
-    # R13: The "Good Enough" Baseline - Medium Budget, Low Demands
-    ctrl.Rule(budget['medium'] & performance_priority['low'] & preferred_resolution['low'], recommendation_score['medium']),
+    # Medium Performance Priority
+    ctrl.Rule(BS_M & PC_M & RC_L, R_H),       # Mid-part for low-res, good value
+    ctrl.Rule(BS_M & PC_M & RC_M, R_E),       # Perfect Goldilocks match (Mid-range sweet spot)
+    ctrl.Rule(BS_M & PC_M & RC_H, R_A),       # Borderline: Mid-part for high-res is generally weak
 
+    # High Performance Priority
+    ctrl.Rule(BS_M & PC_H & RC_L, R_E),       # Great value: High-part for low-res
+    ctrl.Rule(BS_M & PC_H & RC_M, R_E),       # Optimal high-value setup (e.g., high-end 1440p)
+    ctrl.Rule(BS_M & PC_H & RC_H, R_E),       # Optimal high-end value (e.g., high-end 4K)
 
-    # --- D. Remaining combinations (Focus on primary goal if others are neutral) ---
-    # R14: Performance-Resolution Balance
-    ctrl.Rule(performance_priority['medium'] & preferred_resolution['high'], recommendation_score['high']),
-    # R15: Baseline low budget build
-    ctrl.Rule(budget['low'] & performance_priority['low'] & preferred_resolution['low'], recommendation_score['low']),
+    # --- 3. HIGH Budget (BS_H) Rules (9 Rules) ---
+    # Low Performance Priority
+    ctrl.Rule(BS_H & PC_L & RC_L, R_A),       # Waste of high budget on low perf part
+    ctrl.Rule(BS_H & PC_L & RC_M, R_A),       # Waste of high budget on low perf part
+    ctrl.Rule(BS_H & PC_L & RC_H, R_A),       # Waste of high budget on low perf part
 
+    # Medium Performance Priority
+    ctrl.Rule(BS_H & PC_M & RC_L, R_H),       # Safe choice for low res, but could have gotten better perf
+    ctrl.Rule(BS_H & PC_M & RC_M, R_H),       # Safe choice for mid res
+    ctrl.Rule(BS_H & PC_M & RC_H, R_H),       # Safe choice for high res, good part
+
+    # High Performance Priority
+    ctrl.Rule(BS_H & PC_H & RC_L, R_E),       # High-part for low-res, perfect result
+    ctrl.Rule(BS_H & PC_H & RC_M, R_E),       # High-part for mid-res, perfect result
+    ctrl.Rule(BS_H & PC_H & RC_H, R_E)        # Perfect high-end match (High budget, High perf, High res)
 ]
 
 # -------------------------------------------------
